@@ -1,7 +1,7 @@
 {
   "modelName": "Data_Quality",
   "displayName": "Data Quality",
-  "description": "Lightweight data model for log source entropy monitoring. Tracks event_type diversity per sourcetype and index.",
+  "description": "Lightweight data model for log source entropy monitoring. Tracks punct pattern diversity per sourcetype — no TA dependency, works universally.",
   "objects": [
     {
       "objectName": "Events",
@@ -9,15 +9,15 @@
       "parentName": "BaseEvent",
       "fields": [
         {
-          "fieldName": "event_type",
-          "displayName": "Event Type",
+          "fieldName": "punct",
+          "displayName": "Punct Pattern",
           "type": "string",
           "fieldSearch": "",
           "required": false,
-          "multivalue": true,
+          "multivalue": false,
           "hidden": false,
           "editable": true,
-          "comment": "Populated by eventtypes.conf"
+          "comment": "Splunk auto-generated punctuation pattern — collapses to dc=1 when a source repeats the same message. Universal, no TA required."
         }
       ],
       "constraints": [],
