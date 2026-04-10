@@ -1,0 +1,216 @@
+<dashboard version="1.1" theme="dark">
+  <label>Data Quality — Exclusion Manager</label>
+  <description>Add or remove sourcetypes from the entropy monitoring exclusion list. Excluded sourcetypes are ignored by all Data Quality panels and alerts.</description>
+
+  <fieldset submitButton="false" autoRun="false">
+    <input type="text" token="dq_add_st" searchWhenChanged="false">
+      <label>Sourcetype to Add</label>
+      <default></default>
+    </input>
+    <input type="text" token="dq_add_reason" searchWhenChanged="false">
+      <label>Reason</label>
+      <default></default>
+    </input>
+  </fieldset>
+
+  <!-- Add button row -->
+  <row>
+    <panel>
+      <single>
+        <search>
+          <query>| makeresults | eval label="+ Add Exclusion"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="rangeColors">["0x4A90D9","0x4A90D9"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="drilldown">all</option>
+        <option name="underLabel">Click to add the sourcetype above to the exclusion list</option>
+        <drilldown>
+          <condition>
+            <set token="dq_add_confirm">1</set>
+            <set token="dq_hide_list">1</set>
+          </condition>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <html>
+        <![CDATA[
+        <div style="padding:14px 10px; font-size:13px; color:#aaa; line-height:1.6">
+          <strong style="color:#c8d8e8">How to use:</strong><br/>
+          1. Enter a sourcetype and reason in the fields above.<br/>
+          2. Click <strong>+ Add Exclusion</strong> to add it.<br/>
+          3. Click a row in the table below to remove an existing exclusion.<br/>
+          Changes take effect immediately across all Data Quality dashboards.
+        </div>
+        ]]>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Add result row — shown after Add is clicked -->
+  <row depends="$dq_add_confirm$">
+    <panel>
+      <title>Adding Exclusion…</title>
+      <table>
+        <search>
+          <query>| inputlookup data_quality_exclusions | append [| makeresults | eval sourcetype="$dq_add_st$", reason="$dq_add_reason$" | fields sourcetype reason] | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions | stats count as total_exclusions | eval status="Saved — "+total_exclusions+" exclusions in list"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+          <finalized>
+            <unset token="dq_add_confirm"></unset>
+            <unset token="dq_hide_list"></unset>
+          </finalized>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| makeresults | eval label="✓ Done"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="rangeColors">["0x53a051","0x53a051"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="drilldown">all</option>
+        <option name="underLabel">Click to return to list</option>
+        <drilldown>
+          <condition>
+            <unset token="dq_add_confirm"></unset>
+            <unset token="dq_hide_list"></unset>
+            <unset token="dq_add_st"></unset>
+            <unset token="dq_add_reason"></unset>
+          </condition>
+        </drilldown>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Current exclusions list — hidden during add/delete operations -->
+  <row rejects="$dq_hide_list$">
+    <panel>
+      <title>Current Exclusions — click a row to remove</title>
+      <table>
+        <search>
+          <query>| inputlookup data_quality_exclusions | sort sourcetype | rename sourcetype as Sourcetype reason as Reason</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <drilldown>
+          <set token="dq_del_st">$row.Sourcetype$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Delete confirmation row — shown when a row is selected -->
+  <row depends="$dq_del_st$" rejects="$dq_hide_list$">
+    <panel>
+      <html>
+        <![CDATA[
+        <div style="padding:12px 10px; font-size:14px; background:#2b1a1a; border-left:3px solid #dc4e41; border-radius:3px">
+          Remove <strong style="color:#f8be34">$dq_del_st$</strong> from the exclusion list?
+          <br/><span style="font-size:12px; color:#aaa">This sourcetype will be monitored for entropy again after the next dashboard refresh.</span>
+        </div>
+        ]]>
+      </html>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| makeresults | eval label="✓ Confirm Remove"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="drilldown">all</option>
+        <drilldown>
+          <condition>
+            <set token="dq_del_confirm">1</set>
+            <set token="dq_hide_list">1</set>
+          </condition>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| makeresults | eval label="✕ Cancel"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="rangeColors">["0x555555","0x555555"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="drilldown">all</option>
+        <drilldown>
+          <condition>
+            <unset token="dq_del_st"></unset>
+          </condition>
+        </drilldown>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Delete result row — shown after Confirm Remove is clicked -->
+  <row depends="$dq_del_confirm$">
+    <panel>
+      <title>Removing Exclusion…</title>
+      <table>
+        <search>
+          <query>| inputlookup data_quality_exclusions | where sourcetype!="$dq_del_st$" | outputlookup data_quality_exclusions | stats count as total_exclusions | eval status="Saved — "+total_exclusions+" exclusions in list"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+          <finalized>
+            <unset token="dq_del_confirm"></unset>
+            <unset token="dq_del_st"></unset>
+            <unset token="dq_hide_list"></unset>
+          </finalized>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| makeresults | eval label="✓ Done"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="rangeColors">["0x53a051","0x53a051"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="drilldown">all</option>
+        <option name="underLabel">Click to return to list</option>
+        <drilldown>
+          <condition>
+            <unset token="dq_del_confirm"></unset>
+            <unset token="dq_del_st"></unset>
+            <unset token="dq_hide_list"></unset>
+          </condition>
+        </drilldown>
+      </single>
+    </panel>
+  </row>
+
+</dashboard>
