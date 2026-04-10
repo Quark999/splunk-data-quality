@@ -84,19 +84,25 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
     });
     $(document.body).on('click', '#dq-cancel-del', function () {
         clearToken('dq_del_st');
+        showAddBar();
     });
 
-    // ── Show/hide delete confirmation when a table row is clicked ─────────────
+    // ── Show/hide helpers — called directly; don't rely on token event chain ──
+    function showDelBar(st) {
+        $('#dq-del-label').text('Remove "' + st + '" from exclusions?');
+        $('#dq-add-bar').hide();
+        $('#dq-del-bar').show();
+    }
+    function showAddBar() {
+        $('#dq-del-bar').hide();
+        $('#dq-add-bar').show();
+    }
+
+    // Also respond to token changes (handles the case where a row is clicked
+    // via the XML drilldown, which sets the token without going through our JS)
     tokens.on('change:dq_del_st', function () {
-        var st = getToken('dq_del_st');
-        if (st) {
-            $('#dq-del-label').text('Remove "' + st + '" from exclusions?');
-            $('#dq-add-bar').hide();
-            $('#dq-del-bar').show();
-        } else {
-            $('#dq-del-bar').hide();
-            $('#dq-add-bar').show();
-        }
+        var st = tokens.get('dq_del_st'); // check default model directly, not via getToken
+        if (st) { showDelBar(st); } else { showAddBar(); }
     });
 
     // ── Add ───────────────────────────────────────────────────────────────────
@@ -138,7 +144,8 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
             '| inputlookup data_quality_exclusions | where sourcetype!="' + escSpl(st) + '" | outputlookup data_quality_exclusions',
             function (err) {
                 $('#dq-confirm-del').prop('disabled', false).text('\u2713 Confirm Remove');
-                clearToken('dq_del_st'); // hides the del bar via token change handler above
+                clearToken('dq_del_st');
+                showAddBar(); // update DOM directly — don't rely on token event chain
                 if (err) { showToast('Error removing: ' + err, true); return; }
                 showToast('Removed \u2713');
                 refreshTable();
