@@ -44,40 +44,36 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
     }
 
     // ── Inject UI above the table row ─────────────────────────────────────────
-    // We inject two divs: one for the Add button, one for the delete
-    // confirmation. Both live outside Splunk's panel system so they don't
-    // inherit any panel sizing or chrome.
+    // Build the UI element once; injectUI retries until the DOM anchor exists.
+    // autoRun="false" dashboards render rows later than autoRun="true" ones,
+    // so a single setTimeout isn't reliable — we retry until it lands.
+    var $dqUI = $(
+        '<div id="dq-ui" style="padding: 0 12px 12px;">' +
+          '<div id="dq-add-bar">' +
+            '<button class="btn btn-primary btn-sm" id="dq-add-btn">+ Add to Exclusion List</button>' +
+          '</div>' +
+          '<div id="dq-del-bar" style="display:none;">' +
+            '<span id="dq-del-label" style="margin-right:12px; font-weight:600;"></span>' +
+            '<button class="btn btn-destructive btn-sm" id="dq-confirm-del">&#10003; Confirm Remove</button>' +
+            '&nbsp;' +
+            '<button class="btn btn-default btn-sm" id="dq-cancel-del">&#10007; Cancel</button>' +
+          '</div>' +
+        '</div>'
+    );
+
     function injectUI() {
         if ($('#dq-ui').length) return; // already injected
-
-        var $ui = $(
-            '<div id="dq-ui" style="padding: 0 12px 12px;">' +
-              '<div id="dq-add-bar">' +
-                '<button class="btn btn-primary btn-sm" id="dq-add-btn">+ Add to Exclusion List</button>' +
-              '</div>' +
-              '<div id="dq-del-bar" style="display:none;">' +
-                '<span id="dq-del-label" style="margin-right:12px; font-weight:600;"></span>' +
-                '<button class="btn btn-destructive btn-sm" id="dq-confirm-del">&#10003; Confirm Remove</button>' +
-                '&nbsp;' +
-                '<button class="btn btn-default btn-sm" id="dq-cancel-del">&#10007; Cancel</button>' +
-              '</div>' +
-            '</div>'
-        );
-
-        // Insert before the first dashboard row (the exclusions table row)
         var $firstRow = $('.main-section-body .dashboard-row').first();
         if ($firstRow.length) {
-            $firstRow.before($ui);
+            $firstRow.before($dqUI);
+        } else if ($('.main-section-body').length) {
+            $('.main-section-body').prepend($dqUI);
         } else {
-            // Fallback: append to main section
-            $('.main-section-body').prepend($ui);
+            setTimeout(injectUI, 300); // neither anchor exists yet — retry
         }
     }
 
-    // Run on DOM ready (rows exist immediately, only panel content is async)
-    $(document).ready(injectUI);
-    // Also retry once after a tick in case the dashboard body renders late
-    setTimeout(injectUI, 600);
+    setTimeout(injectUI, 200);
 
     // ── Button click handlers (delegated) ─────────────────────────────────────
     $(document.body).on('click', '#dq-add-btn', function () {
