@@ -1,0 +1,31 @@
+/* data_quality_config.css
+   Applied only to the Configure Exclusions view via <dashboard stylesheet="...">.
+   Strips all panel chrome so the page renders as a plain content area
+   rather than a dashboard with card-style panels. */
+
+/* Remove panel backgrounds, shadows and borders */
+.dashboard-panel {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* Remove panel body padding that creates the "card" feel */
+.panel-body.html {
+    padding: 0 !important;
+}
+
+/* Collapse cell padding between panels */
+.dashboard-row .dashboard-cell {
+    padding: 4px 0 !important;
+}
+
+/* Remove the page-level section background */
+.main-section-body {
+    background: transparent !important;
+}
+
+/* Hide the fieldset bar — this page has no dashboard inputs */
+.fieldset {
+    display: none !important;
+}
