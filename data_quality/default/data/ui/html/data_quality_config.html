@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <title>Configure Exclusions</title>
+</head>
+<body>
+
+<div style="padding:28px 36px; max-width:860px; font-family:inherit">
+
+  <!-- Page header -->
+  <div style="margin-bottom:24px">
+    <h2 style="margin:0 0 6px; font-size:22px; font-weight:300; color:#ddd">Configure Exclusions</h2>
+    <p style="margin:0; font-size:13px; color:#888; line-height:1.6">
+      Sourcetypes on this list are skipped by all Data Quality entropy checks, dashboards, and scheduled alerts.<br/>
+      Add internal or expected low-variety sources to keep your signal clean.
+    </p>
+  </div>
+  <hr style="border:none; border-top:1px solid #2a2a2a; margin:0 0 28px"/>
+
+  <!-- Add form -->
+  <h3 style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#666; margin:0 0 14px">Add Exclusion</h3>
+  <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:32px">
+    <div>
+      <label style="display:block; font-size:12px; color:#999; margin-bottom:5px">
+        Sourcetype <span style="color:#dc4e41">*</span>
+      </label>
+      <input id="st-input" type="text" placeholder="e.g. cisco:asa"
+             style="width:250px; padding:7px 10px; background:#111; border:1px solid #333; border-radius:3px; color:#ddd; font-size:13px; font-family:inherit"
+             onkeydown="if(event.key==='Enter') addRow()"/>
+    </div>
+    <div>
+      <label style="display:block; font-size:12px; color:#999; margin-bottom:5px">Reason</label>
+      <input id="reason-input" type="text" placeholder="e.g. Vendor heartbeat — expected low entropy"
+             style="width:330px; padding:7px 10px; background:#111; border:1px solid #333; border-radius:3px; color:#ddd; font-size:13px; font-family:inherit"
+             onkeydown="if(event.key==='Enter') addRow()"/>
+    </div>
+    <button id="add-btn" onclick="addRow()"
+            style="padding:8px 18px; background:#4A90D9; color:#fff; border:none; border-radius:3px; font-size:13px; cursor:pointer; font-family:inherit; white-space:nowrap">
+      + Add
+    </button>
+    <span id="save-ok" style="font-size:12px; color:#53a051; display:none">&#10003; Saved</span>
+    <span id="save-err" style="font-size:12px; color:#dc4e41; display:none"></span>
+  </div>
+
+  <!-- Current exclusions table -->
+  <h3 style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#666; margin:0 0 14px">Current Exclusions</h3>
+
+  <p id="tbl-loading" style="font-size:13px; color:#666">Loading&hellip;</p>
+  <p id="tbl-empty"   style="font-size:13px; color:#666; display:none">No exclusions configured.</p>
+  <p id="tbl-error"   style="font-size:13px; color:#dc4e41; display:none"></p>
+
+  <table id="excl-tbl" style="display:none; width:100%; border-collapse:collapse; font-size:13px">
+    <thead>
+      <tr>
+        <th style="text-align:left; padding:8px 14px; color:#666; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #2a2a2a">#</th>
+        <th style="text-align:left; padding:8px 14px; color:#666; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #2a2a2a">Sourcetype</th>
+        <th style="text-align:left; padding:8px 14px; color:#666; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #2a2a2a">Reason</th>
+        <th style="border-bottom:1px solid #2a2a2a; width:80px"></th>
+      </tr>
+    </thead>
+    <tbody id="excl-body"></tbody>
+  </table>
+
+  <!-- Delete confirmation bar -->
+  <div id="del-bar" style="display:none; margin-top:20px; padding:16px 18px; background:#1c0f0f; border:1px solid #6b2020; border-radius:4px">
+    <div style="font-size:14px; color:#ddd; margin-bottom:4px">
+      Remove <strong id="del-st-label" style="color:#f8be34; font-family:monospace"></strong> from the exclusion list?
+    </div>
+    <div style="font-size:12px; color:#888; margin-bottom:14px">
+      This sourcetype will be monitored for entropy again after the next dashboard refresh.
+    </div>
+    <button onclick="doRemove()"    style="padding:6px 14px; background:#dc4e41; border:none; border-radius:3px; color:#fff; font-size:13px; cursor:pointer; font-family:inherit; margin-right:8px">Confirm Remove</button>
+    <button onclick="cancelRemove()" style="padding:6px 14px; background:#333;    border:none; border-radius:3px; color:#ccc; font-size:13px; cursor:pointer; font-family:inherit">Cancel</button>
+  </div>
+
+</div>
+
+<script>
+var _svc, _$, _delSt;
+
+require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function(mvc, $) {
+    _svc = mvc.createService();
+    _$ = $;
+    refreshTable();
+});
+
+function runSpl(spl, done) {
+    _svc.oneshotSearch(
+        spl,
+        { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 1000 },
+        function(err, data) { done(err, data ? (data.results || []) : []); }
+    );
+}
+
+function refreshTable() {
+    var $ = _$;
+    $('#tbl-loading').show();
+    $('#excl-tbl, #tbl-empty, #tbl-error').hide();
+
+    runSpl('| inputlookup data_quality_exclusions | sort sourcetype', function(err, rows) {
+        $('#tbl-loading').hide();
+        if (err) {
+            $('#tbl-error').text('Error loading exclusions: ' + err).show();
+            return;
+        }
+        var body = $('#excl-body').empty();
+        if (!rows.length) { $('#tbl-empty').show(); return; }
+
+        rows.forEach(function(row, i) {
+            var st     = row.sourcetype || '';
+            var reason = row.reason     || '';
+            body.append(
+                '<tr style="border-bottom:1px solid #1e1e1e">' +
+                  '<td style="padding:9px 14px; color:#555; font-size:12px">' + (i+1) + '</td>' +
+                  '<td style="padding:9px 14px; color:#ddd; font-family:monospace">' + esc(st) + '</td>' +
+                  '<td style="padding:9px 14px; color:#888">' + esc(reason) + '</td>' +
+                  '<td style="padding:9px 14px; text-align:right">' +
+                    '<button onclick="startRemove(\'' + escJs(st) + '\')" ' +
+                            'style="padding:4px 10px; background:transparent; border:1px solid #6b2020; border-radius:3px; color:#dc4e41; font-size:12px; cursor:pointer; font-family:inherit">' +
+                      'Remove' +
+                    '</button>' +
+                  '</td>' +
+                '</tr>'
+            );
+        });
+        $('#excl-tbl').show();
+    });
+}
+
+function addRow() {
+    var $ = _$;
+    var st     = $('#st-input').val().trim();
+    var reason = $('#reason-input').val().trim();
+    if (!st) {
+        $('#st-input').css('border-color', '#dc4e41').focus();
+        return;
+    }
+    $('#st-input').css('border-color', '#333');
+    $('#add-btn').prop('disabled', true).text('Saving…');
+    $('#save-ok, #save-err').hide();
+
+    var spl = '| inputlookup data_quality_exclusions' +
+              ' | append [| makeresults | eval sourcetype="' + escSpl(st) + '", reason="' + escSpl(reason) + '" | fields sourcetype reason]' +
+              ' | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions';
+
+    runSpl(spl, function(err) {
+        $('#add-btn').prop('disabled', false).text('+ Add');
+        if (err) { $('#save-err').text('Error: ' + err).show(); return; }
+        $('#st-input').val('');
+        $('#reason-input').val('');
+        $('#save-ok').show();
+        setTimeout(function() { $('#save-ok').fadeOut(); }, 3000);
+        refreshTable();
+    });
+}
+
+function startRemove(st) {
+    _delSt = st;
+    document.getElementById('del-st-label').textContent = st;
+    var bar = document.getElementById('del-bar');
+    bar.style.display = 'block';
+    bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelRemove() {
+    _delSt = null;
+    document.getElementById('del-bar').style.display = 'none';
+}
+
+function doRemove() {
+    if (!_delSt) return;
+    var st = _delSt;
+    cancelRemove();
+    var spl = '| inputlookup data_quality_exclusions | where sourcetype!="' + escSpl(st) + '" | outputlookup data_quality_exclusions';
+    runSpl(spl, function(err) {
+        if (err) { alert('Error removing exclusion: ' + err); return; }
+        refreshTable();
+    });
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function escJs(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+function escSpl(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+</script>
+
+</body>
+</html>
