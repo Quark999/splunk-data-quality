@@ -1,36 +1,32 @@
 // data_quality_config.js
 // Loaded via <dashboard script="data_quality_config.js">.
 //
-// Handles all outputlookup writes via the Splunk REST API (oneshotSearch),
-// which bypasses the safe_mode "potential security risk" prompt entirely.
-// The XML contains no outputlookup — this file is the only thing that writes.
-//
-// Flow:
-//   Add:    dq_do_add token set → write → refresh table → auto-dismiss
-//   Delete: dq_do_del token set → write → refresh table → auto-dismiss
+// Uses real HTML buttons (no <single> panels) and runs all writes via
+// oneshotSearch (REST) so outputlookup never appears in a dashboard search —
+// zero safe_mode warnings regardless of Splunk config.
 
-require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
+require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
     var svc       = mvc.createService();
     var tokens    = mvc.Components.getInstance('default');
     var submitted = mvc.Components.getInstance('submitted');
 
+    // ── Token helpers ─────────────────────────────────────────────────────────
     function getToken(name) {
         var v = tokens.get(name);
         if (v !== undefined && v !== null) return String(v);
-        if (submitted) { v = submitted.get(name); }
+        if (submitted) v = submitted.get(name);
         return (v !== undefined && v !== null) ? String(v) : '';
     }
-
     function clearToken(name) {
         tokens.unset(name);
         if (submitted) submitted.unset(name);
     }
-
     function setToken(name, val) {
         tokens.set(name, val);
         if (submitted) submitted.set(name, val);
     }
 
+    // ── SPL helpers ───────────────────────────────────────────────────────────
     function runSpl(spl, done) {
         svc.oneshotSearch(
             spl,
@@ -38,26 +34,49 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
             function (err) { done(err); }
         );
     }
+    function escSpl(s) {
+        return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
 
+    // ── Table refresh ─────────────────────────────────────────────────────────
     function refreshTable() {
         var sm = mvc.Components.getInstance('excl_search');
         if (sm && sm.startSearch) sm.startSearch();
     }
 
-    // Escape a string for safe embedding in SPL double-quoted strings
-    function escSpl(s) {
-        return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    // ── Toast notification ────────────────────────────────────────────────────
+    var _toastTimer;
+    function showToast(msg, isError) {
+        var $t = $('#dq-toast');
+        if (!$t.length) {
+            $t = $('<div id="dq-toast"></div>').appendTo('body');
+        }
+        $t.text(msg)
+          .removeClass('dq-toast-ok dq-toast-err')
+          .addClass(isError ? 'dq-toast-err' : 'dq-toast-ok')
+          .show();
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(function () { $t.fadeOut(400); }, isError ? 5000 : 2500);
     }
 
-    function showMsg(msg) {
-        setToken('dq_msg', msg);
-    }
+    // ── Button click handlers (delegated — panels render async) ───────────────
+    $(document.body).on('click', '#dq-add-btn', function () {
+        setToken('dq_do_add', '1');
+    });
+    $(document.body).on('click', '#dq-confirm-del', function () {
+        setToken('dq_do_del', '1');
+    });
+    $(document.body).on('click', '#dq-cancel-del', function () {
+        clearToken('dq_del_st');
+    });
 
-    function clearMsg() {
-        clearToken('dq_msg');
-    }
+    // Update confirmation label when dq_del_st changes
+    tokens.on('change:dq_del_st', function () {
+        var st = getToken('dq_del_st');
+        if (st) $('#dq-del-label').text('Remove "' + st + '" from exclusions?');
+    });
 
-    // ── Add ──────────────────────────────────────────────────────────────────
+    // ── Add ───────────────────────────────────────────────────────────────────
     tokens.on('change:dq_do_add', function () {
         if (!tokens.get('dq_do_add')) return;
         clearToken('dq_do_add');
@@ -67,7 +86,6 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
         if (!st) return;
 
         setToken('dq_busy', '1');
-        showMsg('Saving\u2026');
 
         var spl = '| inputlookup data_quality_exclusions' +
             ' | append [| makeresults | eval sourcetype="' + escSpl(st) + '", reason="' + escSpl(reason) + '" | fields sourcetype reason]' +
@@ -75,20 +93,15 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
 
         runSpl(spl, function (err) {
             clearToken('dq_busy');
-            if (err) {
-                showMsg('Error saving \u2014 ' + err);
-                setTimeout(clearMsg, 5000);
-                return;
-            }
+            if (err) { showToast('Error saving: ' + err, true); return; }
             clearToken('dq_add_st');
             clearToken('dq_add_reason');
-            showMsg('Saved \u2713');
+            showToast('Saved \u2713');
             refreshTable();
-            setTimeout(clearMsg, 2500);
         });
     });
 
-    // ── Delete ───────────────────────────────────────────────────────────────
+    // ── Delete ────────────────────────────────────────────────────────────────
     tokens.on('change:dq_do_del', function () {
         if (!tokens.get('dq_do_del')) return;
         clearToken('dq_do_del');
@@ -97,23 +110,16 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
         if (!st) return;
 
         setToken('dq_busy', '1');
-        showMsg('Removing\u2026');
 
-        var spl = '| inputlookup data_quality_exclusions' +
-            ' | where sourcetype!="' + escSpl(st) + '"' +
-            ' | outputlookup data_quality_exclusions';
-
-        runSpl(spl, function (err) {
-            clearToken('dq_busy');
-            clearToken('dq_del_st');
-            if (err) {
-                showMsg('Error removing \u2014 ' + err);
-                setTimeout(clearMsg, 5000);
-                return;
+        runSpl(
+            '| inputlookup data_quality_exclusions | where sourcetype!="' + escSpl(st) + '" | outputlookup data_quality_exclusions',
+            function (err) {
+                clearToken('dq_busy');
+                clearToken('dq_del_st');
+                if (err) { showToast('Error removing: ' + err, true); return; }
+                showToast('Removed \u2713');
+                refreshTable();
             }
-            showMsg('Removed \u2713');
-            refreshTable();
-            setTimeout(clearMsg, 2500);
-        });
+        );
     });
 });

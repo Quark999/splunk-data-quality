@@ -1,60 +1,41 @@
-/* data_quality_config.css
-   Applied only to the Configure Exclusions view via <dashboard stylesheet="...">.
-   Goals:
-     1. Make colored <single> panels look like buttons, not full-width blocks
-     2. Strip panel chrome (card backgrounds/shadows/borders) from the page
-     3. Keep the fieldset visible (inputs are needed) */
+/* data_quality_config.css — Configure Exclusions page only */
 
-/* ── Panel chrome removal ────────────────────────────────────────────────── */
+/* ── Strip panel chrome ──────────────────────────────────────────────────── */
 .dashboard-panel {
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
 }
-
 .panel-body {
-    padding: 4px 0 !important;
+    padding: 6px 0 !important;
 }
-
+.panel-body.html {
+    padding: 8px 4px !important;
+}
 .dashboard-row .dashboard-cell {
-    padding: 4px 8px !important;
+    padding: 2px 8px !important;
 }
-
 .main-section-body {
     background: transparent !important;
 }
 
-/* ── Button sizing ───────────────────────────────────────────────────────── */
-/* colored-block singles (Add, Confirm, Cancel) render as full-width colored
-   divs by default. Make the colored region only as wide as its text. */
-.single-colormode-block .single-result {
-    display: inline-block !important;
-    padding: 8px 24px !important;
-    border-radius: 4px !important;
-    min-width: 0 !important;
-    width: auto !important;
-    cursor: pointer !important;
+/* ── Delete confirmation text ────────────────────────────────────────────── */
+.dq-confirm-text {
+    margin: 0 0 8px 0;
+    font-weight: 600;
 }
 
-.single-colormode-block {
-    background: transparent !important;
-    text-align: left !important;
+/* ── Toast notification ──────────────────────────────────────────────────── */
+#dq-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 8px 18px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 9999;
+    display: none;
 }
-
-.single-colormode-block .single-value {
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    line-height: 1.4 !important;
-}
-
-/* ── Status message row ──────────────────────────────────────────────────── */
-/* The dq_msg row uses a plain (non-colored) single — style it as small text */
-.dashboard-row .single:not(.single-colormode-block) .single-result {
-    background: transparent !important;
-}
-
-.dashboard-row .single:not(.single-colormode-block) .single-value {
-    font-size: 13px !important;
-    color: #aaa !important;
-    font-style: italic !important;
-}
+#dq-toast.dq-toast-ok  { background: #2e7d32; color: #fff; }
+#dq-toast.dq-toast-err { background: #c62828; color: #fff; }

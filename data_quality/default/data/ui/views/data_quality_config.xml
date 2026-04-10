@@ -13,45 +13,18 @@
     </input>
   </fieldset>
 
-  <!-- Add button — hidden while an action is in progress -->
+  <!-- Add button -->
   <row rejects="$dq_busy$,$dq_del_st$">
     <panel>
-      <single>
-        <search>
-          <query>| makeresults | eval label="+ Add to Exclusion List"</query>
-          <earliest>-1m</earliest>
-          <latest>now</latest>
-        </search>
-        <option name="field">label</option>
-        <option name="height">44</option>
-        <option name="colorMode">block</option>
-        <option name="useColors">1</option>
-        <option name="rangeColors">["0x4A90D9","0x4A90D9"]</option>
-        <option name="rangeValues">[1]</option>
-        <option name="drilldown">all</option>
-        <drilldown>
-          <set token="dq_do_add">1</set>
-        </drilldown>
-      </single>
+      <html>
+        <![CDATA[
+          <button class="btn btn-primary" id="dq-add-btn">+ Add to Exclusion List</button>
+        ]]>
+      </html>
     </panel>
   </row>
 
-  <!-- Status message — shown during and briefly after writes; JS sets/clears dq_msg -->
-  <row depends="$dq_msg$">
-    <panel>
-      <single>
-        <search>
-          <query>| makeresults | eval label="$dq_msg$"</query>
-          <earliest>-1m</earliest>
-          <latest>now</latest>
-        </search>
-        <option name="field">label</option>
-        <option name="height">44</option>
-      </single>
-    </panel>
-  </row>
-
-  <!-- Current exclusions — hidden while busy; JS refreshes after writes -->
+  <!-- Current exclusions table -->
   <row rejects="$dq_busy$">
     <panel>
       <title>Current Exclusions — click a row to remove</title>
@@ -71,42 +44,17 @@
     </panel>
   </row>
 
-  <!-- Delete confirmation — shown after row click, hidden once JS takes over -->
+  <!-- Delete confirmation — shown after row click -->
   <row depends="$dq_del_st$" rejects="$dq_busy$">
     <panel>
-      <title>Remove "$dq_del_st$" from the exclusion list?</title>
-      <single>
-        <search>
-          <query>| makeresults | eval label="✓ Confirm Remove"</query>
-          <earliest>-1m</earliest>
-          <latest>now</latest>
-        </search>
-        <option name="field">label</option>
-        <option name="height">44</option>
-        <option name="colorMode">block</option>
-        <option name="useColors">1</option>
-        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
-        <option name="rangeValues">[1]</option>
-        <option name="drilldown">all</option>
-        <drilldown>
-          <set token="dq_do_del">1</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search>
-          <query>| makeresults | eval label="✕ Cancel"</query>
-          <earliest>-1m</earliest>
-          <latest>now</latest>
-        </search>
-        <option name="field">label</option>
-        <option name="height">44</option>
-        <option name="drilldown">all</option>
-        <drilldown>
-          <unset token="dq_del_st"></unset>
-        </drilldown>
-      </single>
+      <html>
+        <![CDATA[
+          <p id="dq-del-label" class="dq-confirm-text">Remove sourcetype from exclusions?</p>
+          <button class="btn btn-destructive" id="dq-confirm-del">&#10003; Confirm Remove</button>
+          &nbsp;
+          <button class="btn btn-default" id="dq-cancel-del">&#10007; Cancel</button>
+        ]]>
+      </html>
     </panel>
   </row>
 
