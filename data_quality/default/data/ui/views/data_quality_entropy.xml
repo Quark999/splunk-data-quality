@@ -1,0 +1,122 @@
+<dashboard version="1.1" theme="dark">
+  <label>Data Quality — Log Source Entropy</label>
+  <description>Monitor log source health by tracking event_type diversity. Low variety = potential stuck or degraded source.</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time_range" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="text" token="entropy_threshold" searchWhenChanged="true">
+      <label>Alert Threshold (flag below)</label>
+      <default>5</default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <title>Sources Below Entropy Threshold</title>
+      <single>
+        <search>
+          <query>| tstats dc(Data_Quality.event_type) as entropy_proxy FROM datamodel=Data_Quality.Events BY Data_Quality.sourcetype | where entropy_proxy &lt; $entropy_threshold$ | stats dc(Data_Quality.sourcetype) as affected_sources</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[0,1]</option>
+        <option name="underLabel">Affected Sourcetypes</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total Events from Low-Entropy Sources</title>
+      <single>
+        <search>
+          <query>| tstats dc(Data_Quality.event_type) as entropy_proxy count as event_count FROM datamodel=Data_Quality.Events BY Data_Quality.sourcetype | where entropy_proxy &lt; $entropy_threshold$ | stats sum(event_count) as total_events</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="underLabel">Events from Flagged Sources</option>
+        <option name="numberPrecision">0</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Top Offender</title>
+      <single>
+        <search>
+          <query>| tstats dc(Data_Quality.event_type) as entropy_proxy count as event_count FROM datamodel=Data_Quality.Events BY Data_Quality.sourcetype | rename Data_Quality.sourcetype as sourcetype | where entropy_proxy &lt; $entropy_threshold$ | sort - event_count | head 1 | fields sourcetype</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="underLabel">Highest Volume Low-Entropy Source</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Low-Entropy Sources — Detail</title>
+      <table>
+        <search>
+          <query>| tstats dc(Data_Quality.event_type) as entropy_proxy count as event_count FROM datamodel=Data_Quality.Events BY Data_Quality.index, Data_Quality.sourcetype, _time span=1h | rename Data_Quality.index as index Data_Quality.sourcetype as sourcetype | where entropy_proxy &lt; $entropy_threshold$ | stats avg(entropy_proxy) as avg_entropy latest(entropy_proxy) as latest_entropy sum(event_count) as total_events BY index, sourcetype | eval avg_entropy=round(avg_entropy,1) | sort - total_events | rename index as Index sourcetype as Sourcetype avg_entropy as "Avg Distinct event_types/hr" latest_entropy as "Latest Distinct event_types" total_events as "Total Events"</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <format type="color" field="Latest Distinct event_types">
+          <colorPalette type="minMidMax" minColor="#DC4E41" midColor="#F8BE34" maxColor="#53A051"/>
+          <scale type="minMidMax" minValue="1" midValue="3" maxValue="5"/>
+        </format>
+        <format type="color" field="Avg Distinct event_types/hr">
+          <colorPalette type="minMidMax" minColor="#DC4E41" midColor="#F8BE34" maxColor="#53A051"/>
+          <scale type="minMidMax" minValue="1" midValue="3" maxValue="5"/>
+        </format>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Entropy Over Time — All Sources</title>
+      <chart>
+        <search>
+          <query>| tstats dc(Data_Quality.event_type) as entropy FROM datamodel=Data_Quality.Events BY Data_Quality.sourcetype, _time span=1h | rename Data_Quality.sourcetype as sourcetype | timechart span=1h avg(entropy) BY sourcetype limit=20 useother=false</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">Distinct event_types / hr</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">300</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Entropy Heatmap — Sourcetype by Hour of Day</title>
+      <chart>
+        <search>
+          <query>| tstats dc(Data_Quality.event_type) as entropy FROM datamodel=Data_Quality.Events BY Data_Quality.sourcetype, _time span=1h | rename Data_Quality.sourcetype as sourcetype | eval hour=strftime(_time,"%H:00") | chart avg(entropy) BY sourcetype, hour</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+      </chart>
+    </panel>
+  </row>
+</dashboard>

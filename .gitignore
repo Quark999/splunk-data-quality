@@ -1,0 +1,7 @@
+*.pyc
+*.pem
+*.tgz
+*.tar.gz
+local/
+metadata/local.meta
+lookups/*.csv

@@ -1,0 +1,4 @@
+<nav search_view="search" color="#4A90D9">
+  <view name="data_quality_entropy" default="true"/>
+  <view name="search"/>
+</nav>

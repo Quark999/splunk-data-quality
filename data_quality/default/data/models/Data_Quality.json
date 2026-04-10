@@ -1,0 +1,27 @@
+{
+  "modelName": "Data_Quality",
+  "displayName": "Data Quality",
+  "description": "Lightweight data model for log source entropy monitoring. Tracks event_type diversity per sourcetype and index.",
+  "objects": [
+    {
+      "objectName": "Events",
+      "displayName": "Events",
+      "parentName": "BaseEvent",
+      "fields": [
+        {
+          "fieldName": "event_type",
+          "displayName": "Event Type",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": true,
+          "hidden": false,
+          "editable": true,
+          "comment": "Populated by eventtypes.conf"
+        }
+      ],
+      "constraints": [],
+      "calculations": []
+    }
+  ]
+}
