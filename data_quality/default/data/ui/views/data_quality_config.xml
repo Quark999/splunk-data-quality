@@ -1,5 +1,5 @@
 <dashboard version="1.1" theme="dark">
-  <label>Data Quality — Exclusion Manager</label>
+  <label>Data Quality — Configure Exclusions</label>
   <description>Add or remove sourcetypes from the entropy monitoring exclusion list. Excluded sourcetypes are ignored by all Data Quality panels and alerts.</description>
 
   <fieldset submitButton="false" autoRun="false">
@@ -30,10 +30,8 @@
         <option name="drilldown">all</option>
         <option name="underLabel">Click to add the sourcetype above to the exclusion list</option>
         <drilldown>
-          <condition>
-            <set token="dq_add_confirm">1</set>
-            <set token="dq_hide_list">1</set>
-          </condition>
+          <set token="dq_add_confirm">1</set>
+          <set token="dq_hide_list">1</set>
         </drilldown>
       </single>
     </panel>
@@ -61,10 +59,6 @@
           <query>| inputlookup data_quality_exclusions | append [| makeresults | eval sourcetype="$dq_add_st$", reason="$dq_add_reason$" | fields sourcetype reason] | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions | stats count as total_exclusions | eval status="Saved — "+total_exclusions+" exclusions in list"</query>
           <earliest>-1m</earliest>
           <latest>now</latest>
-          <finalized>
-            <unset token="dq_add_confirm"></unset>
-            <unset token="dq_hide_list"></unset>
-          </finalized>
         </search>
         <option name="drilldown">none</option>
       </table>
@@ -84,12 +78,10 @@
         <option name="drilldown">all</option>
         <option name="underLabel">Click to return to list</option>
         <drilldown>
-          <condition>
-            <unset token="dq_add_confirm"></unset>
-            <unset token="dq_hide_list"></unset>
-            <unset token="dq_add_st"></unset>
-            <unset token="dq_add_reason"></unset>
-          </condition>
+          <unset token="dq_add_confirm"></unset>
+          <unset token="dq_hide_list"></unset>
+          <unset token="dq_add_st"></unset>
+          <unset token="dq_add_reason"></unset>
         </drilldown>
       </single>
     </panel>
@@ -141,10 +133,8 @@
         <option name="rangeValues">[1]</option>
         <option name="drilldown">all</option>
         <drilldown>
-          <condition>
-            <set token="dq_del_confirm">1</set>
-            <set token="dq_hide_list">1</set>
-          </condition>
+          <set token="dq_del_confirm">1</set>
+          <set token="dq_hide_list">1</set>
         </drilldown>
       </single>
     </panel>
@@ -162,9 +152,7 @@
         <option name="rangeValues">[1]</option>
         <option name="drilldown">all</option>
         <drilldown>
-          <condition>
-            <unset token="dq_del_st"></unset>
-          </condition>
+          <unset token="dq_del_st"></unset>
         </drilldown>
       </single>
     </panel>
@@ -179,11 +167,6 @@
           <query>| inputlookup data_quality_exclusions | where sourcetype!="$dq_del_st$" | outputlookup data_quality_exclusions | stats count as total_exclusions | eval status="Saved — "+total_exclusions+" exclusions in list"</query>
           <earliest>-1m</earliest>
           <latest>now</latest>
-          <finalized>
-            <unset token="dq_del_confirm"></unset>
-            <unset token="dq_del_st"></unset>
-            <unset token="dq_hide_list"></unset>
-          </finalized>
         </search>
         <option name="drilldown">none</option>
       </table>
@@ -203,11 +186,9 @@
         <option name="drilldown">all</option>
         <option name="underLabel">Click to return to list</option>
         <drilldown>
-          <condition>
-            <unset token="dq_del_confirm"></unset>
-            <unset token="dq_del_st"></unset>
-            <unset token="dq_hide_list"></unset>
-          </condition>
+          <unset token="dq_del_confirm"></unset>
+          <unset token="dq_del_st"></unset>
+          <unset token="dq_hide_list"></unset>
         </drilldown>
       </single>
     </panel>
