@@ -1,31 +1,60 @@
 /* data_quality_config.css
    Applied only to the Configure Exclusions view via <dashboard stylesheet="...">.
-   Strips all panel chrome so the page renders as a plain content area
-   rather than a dashboard with card-style panels. */
+   Goals:
+     1. Make colored <single> panels look like buttons, not full-width blocks
+     2. Strip panel chrome (card backgrounds/shadows/borders) from the page
+     3. Keep the fieldset visible (inputs are needed) */
 
-/* Remove panel backgrounds, shadows and borders */
+/* ── Panel chrome removal ────────────────────────────────────────────────── */
 .dashboard-panel {
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
 }
 
-/* Remove panel body padding that creates the "card" feel */
-.panel-body.html {
-    padding: 0 !important;
-}
-
-/* Collapse cell padding between panels */
-.dashboard-row .dashboard-cell {
+.panel-body {
     padding: 4px 0 !important;
 }
 
-/* Remove the page-level section background */
+.dashboard-row .dashboard-cell {
+    padding: 4px 8px !important;
+}
+
 .main-section-body {
     background: transparent !important;
 }
 
-/* Hide the fieldset bar — this page has no dashboard inputs */
-.fieldset {
-    display: none !important;
+/* ── Button sizing ───────────────────────────────────────────────────────── */
+/* colored-block singles (Add, Confirm, Cancel) render as full-width colored
+   divs by default. Make the colored region only as wide as its text. */
+.single-colormode-block .single-result {
+    display: inline-block !important;
+    padding: 8px 24px !important;
+    border-radius: 4px !important;
+    min-width: 0 !important;
+    width: auto !important;
+    cursor: pointer !important;
+}
+
+.single-colormode-block {
+    background: transparent !important;
+    text-align: left !important;
+}
+
+.single-colormode-block .single-value {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+}
+
+/* ── Status message row ──────────────────────────────────────────────────── */
+/* The dq_msg row uses a plain (non-colored) single — style it as small text */
+.dashboard-row .single:not(.single-colormode-block) .single-result {
+    background: transparent !important;
+}
+
+.dashboard-row .single:not(.single-colormode-block) .single-value {
+    font-size: 13px !important;
+    color: #aaa !important;
+    font-style: italic !important;
 }

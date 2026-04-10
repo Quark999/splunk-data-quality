@@ -1,12 +1,17 @@
 // data_quality_config.js
 // Loaded via <dashboard script="data_quality_config.js">.
-// Listens for token changes set by single-value panel drilldowns,
-// then runs outputlookup via the SDK REST API — no dashboard search,
-// no safe_mode prompt.
+//
+// Handles all outputlookup writes via the Splunk REST API (oneshotSearch),
+// which bypasses the safe_mode "potential security risk" prompt entirely.
+// The XML contains no outputlookup — this file is the only thing that writes.
+//
+// Flow:
+//   Add:    dq_do_add token set → write → refresh table → auto-dismiss
+//   Delete: dq_do_del token set → write → refresh table → auto-dismiss
 
 require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
-    var svc    = mvc.createService();
-    var tokens = mvc.Components.getInstance('default');
+    var svc       = mvc.createService();
+    var tokens    = mvc.Components.getInstance('default');
     var submitted = mvc.Components.getInstance('submitted');
 
     function getToken(name) {
@@ -39,8 +44,17 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
         if (sm && sm.startSearch) sm.startSearch();
     }
 
+    // Escape a string for safe embedding in SPL double-quoted strings
     function escSpl(s) {
         return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+
+    function showMsg(msg) {
+        setToken('dq_msg', msg);
+    }
+
+    function clearMsg() {
+        clearToken('dq_msg');
     }
 
     // ── Add ──────────────────────────────────────────────────────────────────
@@ -52,19 +66,25 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
         var reason = getToken('dq_add_reason').trim();
         if (!st) return;
 
-        setToken('dq_msg', 'Saving\u2026');
+        setToken('dq_busy', '1');
+        showMsg('Saving\u2026');
 
         var spl = '| inputlookup data_quality_exclusions' +
             ' | append [| makeresults | eval sourcetype="' + escSpl(st) + '", reason="' + escSpl(reason) + '" | fields sourcetype reason]' +
             ' | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions';
 
         runSpl(spl, function (err) {
-            if (err) { setToken('dq_msg', 'Error saving'); return; }
-            setToken('dq_msg', 'Saved \u2713');
+            clearToken('dq_busy');
+            if (err) {
+                showMsg('Error saving \u2014 ' + err);
+                setTimeout(clearMsg, 5000);
+                return;
+            }
             clearToken('dq_add_st');
             clearToken('dq_add_reason');
-            setTimeout(function () { clearToken('dq_msg'); }, 3000);
+            showMsg('Saved \u2713');
             refreshTable();
+            setTimeout(clearMsg, 2500);
         });
     });
 
@@ -76,13 +96,24 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
         var st = getToken('dq_del_st').trim();
         if (!st) return;
 
-        runSpl(
-            '| inputlookup data_quality_exclusions | where sourcetype!="' + escSpl(st) + '" | outputlookup data_quality_exclusions',
-            function (err) {
-                if (err) { alert('Error removing exclusion: ' + err); return; }
-                clearToken('dq_del_st');
-                refreshTable();
+        setToken('dq_busy', '1');
+        showMsg('Removing\u2026');
+
+        var spl = '| inputlookup data_quality_exclusions' +
+            ' | where sourcetype!="' + escSpl(st) + '"' +
+            ' | outputlookup data_quality_exclusions';
+
+        runSpl(spl, function (err) {
+            clearToken('dq_busy');
+            clearToken('dq_del_st');
+            if (err) {
+                showMsg('Error removing \u2014 ' + err);
+                setTimeout(clearMsg, 5000);
+                return;
             }
-        );
+            showMsg('Removed \u2713');
+            refreshTable();
+            setTimeout(clearMsg, 2500);
+        });
     });
 });
