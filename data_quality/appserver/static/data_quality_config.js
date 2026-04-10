@@ -19,6 +19,15 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
     function clearToken(name) { tokens.unset(name); if (submitted) submitted.unset(name); }
     function setToken(name, val) { tokens.set(name, val); if (submitted) submitted.set(name, val); }
 
+    // Cache fieldset input values ourselves — Splunk's submitted model can
+    // drop these values after unrelated token mutations (e.g. clearToken on
+    // dq_del_st triggers a form re-evaluation that clears other tokens).
+    // We watch the default model directly so we always have the latest value.
+    var _addSt     = getToken('dq_add_st');
+    var _addReason = getToken('dq_add_reason');
+    tokens.on('change:dq_add_st',     function () { var v = tokens.get('dq_add_st');     if (v != null) _addSt     = String(v); });
+    tokens.on('change:dq_add_reason', function () { var v = tokens.get('dq_add_reason'); if (v != null) _addReason = String(v); });
+
     // ── SPL helpers ───────────────────────────────────────────────────────────
     function runSpl(spl, done) {
         svc.oneshotSearch(spl,
@@ -110,8 +119,8 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
         if (!tokens.get('dq_do_add')) return;
         clearToken('dq_do_add');
 
-        var st     = getToken('dq_add_st').trim();
-        var reason = getToken('dq_add_reason').trim();
+        var st     = _addSt.trim();
+        var reason = _addReason.trim();
         if (!st) { showToast('Enter a sourcetype first', true); return; }
 
         $('#dq-add-btn').prop('disabled', true).text('Saving\u2026');
