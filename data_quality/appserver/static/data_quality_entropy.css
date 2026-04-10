@@ -1,0 +1,5 @@
+/* data_quality_entropy.css — Entropy dashboard only */
+
+/* No overrides needed for the KPI singles (Sources Below Threshold etc) —
+   those are intentionally large. Only the injected Clear bar needs styling,
+   which is handled inline in the JS. */

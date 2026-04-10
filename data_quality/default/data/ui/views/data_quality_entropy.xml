@@ -1,4 +1,6 @@
-<dashboard version="1.1" theme="dark">
+<dashboard version="1.1" theme="dark"
+           script="data_quality_entropy.js"
+           stylesheet="data_quality_entropy.css">
   <label>Data Quality — Log Source Entropy</label>
   <description>Monitor log source health by tracking punct pattern diversity. Low variety = potential stuck or degraded source. No TA dependency — works universally. Excludes sourcetypes in the data_quality_exclusions lookup.</description>
 
@@ -85,33 +87,13 @@
     </panel>
   </row>
 
-  <!-- Drilldown: shown when a row is selected in the detail table -->
-  <row depends="$selected_sourcetype$">
-    <panel>
-      <title>Inspecting: $selected_sourcetype$</title>
-      <single>
-        <search>
-          <query>| makeresults | eval label="✕ Clear"</query>
-          <earliest>-1m</earliest>
-          <latest>now</latest>
-        </search>
-        <option name="field">label</option>
-        <option name="height">50</option>
-        <option name="drilldown">all</option>
-        <option name="underLabel">Click to close inspect panels</option>
-        <drilldown>
-          <unset token="selected_sourcetype"></unset>
-        </drilldown>
-      </single>
-    </panel>
-  </row>
-
+  <!-- JS injects a compact Clear button when selected_sourcetype is set -->
   <row depends="$selected_sourcetype$">
     <panel>
       <title>Punct Pattern Distribution — $selected_sourcetype$</title>
       <table>
         <search>
-          <query>sourcetype="$selected_sourcetype$" | stats count by punct | eventstats sum(count) as total | eval pct=round(count/total*100,1) | sort - count | head 15 | fields - total | rename punct as "Punct Pattern" count as Events pct as "% of Total"</query>
+          <query>index=* sourcetype="$selected_sourcetype$" | fillnull value="(none)" punct | stats count by punct | eventstats sum(count) as total | eval pct=round(count/total*100,1) | sort - count | head 20 | fields - total | rename punct as "Punct Pattern" count as Events pct as "% of Total"</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>

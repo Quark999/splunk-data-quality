@@ -1,31 +1,16 @@
 /* data_quality_config.css — Configure Exclusions page only */
 
-/* ── Strip panel chrome ──────────────────────────────────────────────────── */
+/* Strip panel chrome */
 .dashboard-panel {
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
 }
-.panel-body {
-    padding: 6px 0 !important;
-}
-.panel-body.html {
-    padding: 8px 4px !important;
-}
-.dashboard-row .dashboard-cell {
-    padding: 2px 8px !important;
-}
-.main-section-body {
-    background: transparent !important;
-}
+.panel-body { padding: 6px 0 !important; }
+.dashboard-row .dashboard-cell { padding: 2px 8px !important; }
+.main-section-body { background: transparent !important; }
 
-/* ── Delete confirmation text ────────────────────────────────────────────── */
-.dq-confirm-text {
-    margin: 0 0 8px 0;
-    font-weight: 600;
-}
-
-/* ── Toast notification ──────────────────────────────────────────────────── */
+/* Toast */
 #dq-toast {
     position: fixed;
     bottom: 24px;

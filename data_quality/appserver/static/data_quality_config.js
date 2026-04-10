@@ -1,9 +1,8 @@
 // data_quality_config.js
-// Loaded via <dashboard script="data_quality_config.js">.
-//
-// Uses real HTML buttons (no <single> panels) and runs all writes via
-// oneshotSearch (REST) so outputlookup never appears in a dashboard search —
-// zero safe_mode warnings regardless of Splunk config.
+// All interactive UI (Add button, delete confirmation) is injected into the
+// page via JS — avoids <html> panel rendering issues across Splunk versions.
+// All writes go via oneshotSearch (REST) — no outputlookup in XML searches,
+// no safe_mode warnings regardless of Splunk instance configuration.
 
 require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
     var svc       = mvc.createService();
@@ -17,49 +16,70 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
         if (submitted) v = submitted.get(name);
         return (v !== undefined && v !== null) ? String(v) : '';
     }
-    function clearToken(name) {
-        tokens.unset(name);
-        if (submitted) submitted.unset(name);
-    }
-    function setToken(name, val) {
-        tokens.set(name, val);
-        if (submitted) submitted.set(name, val);
-    }
+    function clearToken(name) { tokens.unset(name); if (submitted) submitted.unset(name); }
+    function setToken(name, val) { tokens.set(name, val); if (submitted) submitted.set(name, val); }
 
     // ── SPL helpers ───────────────────────────────────────────────────────────
     function runSpl(spl, done) {
-        svc.oneshotSearch(
-            spl,
+        svc.oneshotSearch(spl,
             { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 0 },
-            function (err) { done(err); }
-        );
+            function (err) { done(err); });
     }
-    function escSpl(s) {
-        return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    }
+    function escSpl(s) { return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 
-    // ── Table refresh ─────────────────────────────────────────────────────────
     function refreshTable() {
         var sm = mvc.Components.getInstance('excl_search');
         if (sm && sm.startSearch) sm.startSearch();
     }
 
-    // ── Toast notification ────────────────────────────────────────────────────
+    // ── Toast ─────────────────────────────────────────────────────────────────
     var _toastTimer;
     function showToast(msg, isError) {
         var $t = $('#dq-toast');
-        if (!$t.length) {
-            $t = $('<div id="dq-toast"></div>').appendTo('body');
-        }
-        $t.text(msg)
-          .removeClass('dq-toast-ok dq-toast-err')
-          .addClass(isError ? 'dq-toast-err' : 'dq-toast-ok')
-          .show();
+        if (!$t.length) $t = $('<div id="dq-toast"></div>').appendTo('body');
+        $t.text(msg).removeClass('dq-toast-ok dq-toast-err')
+          .addClass(isError ? 'dq-toast-err' : 'dq-toast-ok').show();
         clearTimeout(_toastTimer);
         _toastTimer = setTimeout(function () { $t.fadeOut(400); }, isError ? 5000 : 2500);
     }
 
-    // ── Button click handlers (delegated — panels render async) ───────────────
+    // ── Inject UI above the table row ─────────────────────────────────────────
+    // We inject two divs: one for the Add button, one for the delete
+    // confirmation. Both live outside Splunk's panel system so they don't
+    // inherit any panel sizing or chrome.
+    function injectUI() {
+        if ($('#dq-ui').length) return; // already injected
+
+        var $ui = $(
+            '<div id="dq-ui" style="padding: 0 12px 12px;">' +
+              '<div id="dq-add-bar">' +
+                '<button class="btn btn-primary btn-sm" id="dq-add-btn">+ Add to Exclusion List</button>' +
+              '</div>' +
+              '<div id="dq-del-bar" style="display:none;">' +
+                '<span id="dq-del-label" style="margin-right:12px; font-weight:600;"></span>' +
+                '<button class="btn btn-destructive btn-sm" id="dq-confirm-del">&#10003; Confirm Remove</button>' +
+                '&nbsp;' +
+                '<button class="btn btn-default btn-sm" id="dq-cancel-del">&#10007; Cancel</button>' +
+              '</div>' +
+            '</div>'
+        );
+
+        // Insert before the first dashboard row (the exclusions table row)
+        var $firstRow = $('.main-section-body .dashboard-row').first();
+        if ($firstRow.length) {
+            $firstRow.before($ui);
+        } else {
+            // Fallback: append to main section
+            $('.main-section-body').prepend($ui);
+        }
+    }
+
+    // Run on DOM ready (rows exist immediately, only panel content is async)
+    $(document).ready(injectUI);
+    // Also retry once after a tick in case the dashboard body renders late
+    setTimeout(injectUI, 600);
+
+    // ── Button click handlers (delegated) ─────────────────────────────────────
     $(document.body).on('click', '#dq-add-btn', function () {
         setToken('dq_do_add', '1');
     });
@@ -70,10 +90,17 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
         clearToken('dq_del_st');
     });
 
-    // Update confirmation label when dq_del_st changes
+    // ── Show/hide delete confirmation when a table row is clicked ─────────────
     tokens.on('change:dq_del_st', function () {
         var st = getToken('dq_del_st');
-        if (st) $('#dq-del-label').text('Remove "' + st + '" from exclusions?');
+        if (st) {
+            $('#dq-del-label').text('Remove "' + st + '" from exclusions?');
+            $('#dq-add-bar').hide();
+            $('#dq-del-bar').show();
+        } else {
+            $('#dq-del-bar').hide();
+            $('#dq-add-bar').show();
+        }
     });
 
     // ── Add ───────────────────────────────────────────────────────────────────
@@ -83,16 +110,16 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
 
         var st     = getToken('dq_add_st').trim();
         var reason = getToken('dq_add_reason').trim();
-        if (!st) return;
+        if (!st) { showToast('Enter a sourcetype first', true); return; }
 
-        setToken('dq_busy', '1');
+        $('#dq-add-btn').prop('disabled', true).text('Saving\u2026');
 
         var spl = '| inputlookup data_quality_exclusions' +
             ' | append [| makeresults | eval sourcetype="' + escSpl(st) + '", reason="' + escSpl(reason) + '" | fields sourcetype reason]' +
             ' | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions';
 
         runSpl(spl, function (err) {
-            clearToken('dq_busy');
+            $('#dq-add-btn').prop('disabled', false).text('+ Add to Exclusion List');
             if (err) { showToast('Error saving: ' + err, true); return; }
             clearToken('dq_add_st');
             clearToken('dq_add_reason');
@@ -109,13 +136,13 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
         var st = getToken('dq_del_st').trim();
         if (!st) return;
 
-        setToken('dq_busy', '1');
+        $('#dq-confirm-del').prop('disabled', true).text('Removing\u2026');
 
         runSpl(
             '| inputlookup data_quality_exclusions | where sourcetype!="' + escSpl(st) + '" | outputlookup data_quality_exclusions',
             function (err) {
-                clearToken('dq_busy');
-                clearToken('dq_del_st');
+                $('#dq-confirm-del').prop('disabled', false).text('\u2713 Confirm Remove');
+                clearToken('dq_del_st'); // hides the del bar via token change handler above
                 if (err) { showToast('Error removing: ' + err, true); return; }
                 showToast('Removed \u2713');
                 refreshTable();

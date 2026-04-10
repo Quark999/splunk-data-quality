@@ -13,19 +13,8 @@
     </input>
   </fieldset>
 
-  <!-- Add button -->
-  <row rejects="$dq_busy$,$dq_del_st$">
-    <panel>
-      <html>
-        <![CDATA[
-          <button class="btn btn-primary" id="dq-add-btn">+ Add to Exclusion List</button>
-        ]]>
-      </html>
-    </panel>
-  </row>
-
-  <!-- Current exclusions table -->
-  <row rejects="$dq_busy$">
+  <!-- JS injects the Add button and delete confirmation above this row -->
+  <row>
     <panel>
       <title>Current Exclusions — click a row to remove</title>
       <table>
@@ -41,20 +30,6 @@
           <set token="dq_del_st">$row.Sourcetype$</set>
         </drilldown>
       </table>
-    </panel>
-  </row>
-
-  <!-- Delete confirmation — shown after row click -->
-  <row depends="$dq_del_st$" rejects="$dq_busy$">
-    <panel>
-      <html>
-        <![CDATA[
-          <p id="dq-del-label" class="dq-confirm-text">Remove sourcetype from exclusions?</p>
-          <button class="btn btn-destructive" id="dq-confirm-del">&#10003; Confirm Remove</button>
-          &nbsp;
-          <button class="btn btn-default" id="dq-cancel-del">&#10007; Cancel</button>
-        ]]>
-      </html>
     </panel>
   </row>
 
