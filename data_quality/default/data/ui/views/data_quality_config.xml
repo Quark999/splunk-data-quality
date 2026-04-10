@@ -1,4 +1,4 @@
-<dashboard version="1.1" theme="dark" stylesheet="data_quality_config.css">
+<dashboard version="1.1" theme="dark" stylesheet="data_quality_config.css" script="data_quality_config.js">
   <label>Configure Exclusions</label>
 
   <row>
@@ -7,7 +7,6 @@
         <![CDATA[
         <div style="padding:20px 28px; max-width:860px; font-family:inherit">
 
-          <!-- Page header -->
           <div style="margin-bottom:20px; border-bottom:1px solid #2a2a2a; padding-bottom:16px">
             <h2 style="margin:0 0 4px; font-size:20px; font-weight:300; color:#ddd">Configure Exclusions</h2>
             <p style="margin:0; color:#888; font-size:13px; line-height:1.5">
@@ -16,34 +15,30 @@
             </p>
           </div>
 
-          <!-- Add form -->
           <h3 style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#666; margin:0 0 12px">Add Exclusion</h3>
           <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:28px">
             <div>
               <label style="display:block; font-size:12px; color:#999; margin-bottom:4px">Sourcetype <span style="color:#dc4e41">*</span></label>
               <input id="dq-st" type="text" placeholder="e.g. cisco:asa"
-                     style="width:240px; padding:7px 10px; background:#111; border:1px solid #333; border-radius:3px; color:#ddd; font-size:13px; font-family:inherit"
-                     onkeydown="if(event.key==='Enter') dqAdd()"/>
+                     style="width:240px; padding:7px 10px; background:#111; border:1px solid #333; border-radius:3px; color:#ddd; font-size:13px; font-family:inherit"/>
             </div>
             <div>
               <label style="display:block; font-size:12px; color:#999; margin-bottom:4px">Reason</label>
-              <input id="dq-reason" type="text" placeholder="e.g. Vendor heartbeat — expected low entropy"
-                     style="width:310px; padding:7px 10px; background:#111; border:1px solid #333; border-radius:3px; color:#ddd; font-size:13px; font-family:inherit"
-                     onkeydown="if(event.key==='Enter') dqAdd()"/>
+              <input id="dq-reason" type="text" placeholder="e.g. Vendor heartbeat"
+                     style="width:310px; padding:7px 10px; background:#111; border:1px solid #333; border-radius:3px; color:#ddd; font-size:13px; font-family:inherit"/>
             </div>
             <button id="dq-add-btn" onclick="dqAdd()"
                     style="padding:8px 16px; background:#4A90D9; color:#fff; border:none; border-radius:3px; font-size:13px; cursor:pointer; white-space:nowrap">
               + Add
             </button>
-            <span id="dq-ok"  style="font-size:12px; color:#53a051; display:none">&#10003; Saved</span>
-            <span id="dq-err" style="font-size:12px; color:#dc4e41; display:none"></span>
+            <span id="dq-ok"      style="font-size:12px; color:#53a051; display:none">&#10003; Saved</span>
+            <span id="dq-add-err" style="font-size:12px; color:#dc4e41; display:none"></span>
           </div>
 
-          <!-- Exclusions table -->
           <h3 style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#666; margin:0 0 12px">Current Exclusions</h3>
-          <p id="dq-loading"  style="font-size:13px; color:#666">Loading&hellip;</p>
-          <p id="dq-empty"    style="font-size:13px; color:#666;    display:none">No exclusions configured.</p>
-          <p id="dq-tbl-err"  style="font-size:13px; color:#dc4e41; display:none"></p>
+          <p id="dq-loading" style="font-size:13px; color:#666">Loading&#8230;</p>
+          <p id="dq-empty"   style="font-size:13px; color:#666;    display:none">No exclusions configured.</p>
+          <p id="dq-err"     style="font-size:13px; color:#dc4e41; display:none"></p>
 
           <table id="dq-tbl" style="display:none; width:100%; border-collapse:collapse; font-size:13px">
             <thead>
@@ -57,7 +52,6 @@
             <tbody id="dq-tbody"></tbody>
           </table>
 
-          <!-- Delete confirmation -->
           <div id="dq-confirm" style="display:none; margin-top:16px; padding:14px 16px; background:#1c0f0f; border:1px solid #6b2020; border-radius:4px">
             <div style="font-size:14px; color:#ddd; margin-bottom:4px">
               Remove <strong id="dq-del-label" style="color:#f8be34; font-family:monospace"></strong> from the exclusion list?
@@ -70,105 +64,6 @@
           </div>
 
         </div>
-
-        <script>
-        (function() {
-          var _svc, _$, _del;
-
-          function waitAndInit() {
-            if (typeof require === 'undefined') { setTimeout(waitAndInit, 50); return; }
-            require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function(mvc, $) {
-              _svc = mvc.createService();
-              _$ = $;
-              dqLoad();
-            });
-          }
-          waitAndInit();
-
-          window.dqLoad = function() {
-            var $ = _$;
-            $('#dq-loading').show();
-            $('#dq-tbl, #dq-empty, #dq-tbl-err').hide();
-            _svc.oneshotSearch(
-              '| inputlookup data_quality_exclusions | sort sourcetype',
-              { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 1000 },
-              function(err, data) {
-                $('#dq-loading').hide();
-                if (err) { $('#dq-tbl-err').text('Error loading: ' + err).show(); return; }
-                var rows = (data && data.results) ? data.results : [];
-                var tbody = $('#dq-tbody').empty();
-                if (!rows.length) { $('#dq-empty').show(); return; }
-                rows.forEach(function(r, i) {
-                  var st = r.sourcetype || '', reason = r.reason || '';
-                  tbody.append(
-                    '<tr style="border-bottom:1px solid #1e1e1e">' +
-                    '<td style="padding:8px 12px; color:#555; font-size:12px">' + (i+1) + '</td>' +
-                    '<td style="padding:8px 12px; color:#ddd; font-family:monospace">' + dqEsc(st) + '</td>' +
-                    '<td style="padding:8px 12px; color:#888">' + dqEsc(reason) + '</td>' +
-                    '<td style="padding:8px 12px; text-align:right">' +
-                      '<button onclick="dqStartDel(\'' + dqEscJs(st) + '\')" ' +
-                        'style="padding:4px 10px; background:transparent; border:1px solid #6b2020; border-radius:3px; color:#dc4e41; font-size:12px; cursor:pointer">' +
-                        'Remove</button>' +
-                    '</td></tr>'
-                  );
-                });
-                $('#dq-tbl').show();
-              }
-            );
-          };
-
-          window.dqAdd = function() {
-            var $ = _$;
-            var st = $('#dq-st').val().trim(), reason = $('#dq-reason').val().trim();
-            if (!st) { $('#dq-st').css('border-color','#dc4e41').focus(); return; }
-            $('#dq-st').css('border-color','#333');
-            $('#dq-add-btn').prop('disabled', true).text('Saving…');
-            $('#dq-ok, #dq-err').hide();
-            var spl = '| inputlookup data_quality_exclusions' +
-              ' | append [| makeresults | eval sourcetype="' + dqEscSpl(st) + '", reason="' + dqEscSpl(reason) + '" | fields sourcetype reason]' +
-              ' | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions';
-            _svc.oneshotSearch(spl,
-              { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 0 },
-              function(err) {
-                $('#dq-add-btn').prop('disabled', false).text('+ Add');
-                if (err) { $('#dq-err').text('Error: ' + err).show(); return; }
-                $('#dq-st').val(''); $('#dq-reason').val('');
-                $('#dq-ok').show();
-                setTimeout(function() { $('#dq-ok').fadeOut(); }, 3000);
-                dqLoad();
-              }
-            );
-          };
-
-          window.dqStartDel = function(st) {
-            _del = st;
-            document.getElementById('dq-del-label').textContent = st;
-            document.getElementById('dq-confirm').style.display = 'block';
-          };
-          window.dqCancelDel = function() {
-            _del = null;
-            document.getElementById('dq-confirm').style.display = 'none';
-          };
-          window.dqConfirmDel = function() {
-            if (!_del) return;
-            var st = _del; dqCancelDel();
-            _svc.oneshotSearch(
-              '| inputlookup data_quality_exclusions | where sourcetype!="' + dqEscSpl(st) + '" | outputlookup data_quality_exclusions',
-              { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 0 },
-              function(err) {
-                if (err) { alert('Error removing exclusion: ' + err); return; }
-                dqLoad();
-              }
-            );
-          };
-
-          function dqEsc(s) {
-            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-          }
-          function dqEscJs(s)  { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
-          function dqEscSpl(s) { return String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"'); }
-        })();
-        </script>
         ]]>
       </html>
     </panel>
