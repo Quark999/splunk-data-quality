@@ -35,7 +35,7 @@ require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
     }
 
     function refreshTable() {
-        var sm = mvc.Components.getInstance('excl-search');
+        var sm = mvc.Components.getInstance('excl_search');
         if (sm && sm.startSearch) sm.startSearch();
     }
 

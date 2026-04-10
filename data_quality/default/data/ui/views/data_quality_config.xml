@@ -50,7 +50,7 @@
     <panel>
       <title>Current Exclusions — click a row to remove</title>
       <table>
-        <search id="excl-search">
+        <search id="excl_search">
           <query>| inputlookup data_quality_exclusions | sort sourcetype | rename sourcetype as Sourcetype reason as Reason</query>
           <earliest>-1m</earliest>
           <latest>now</latest>
