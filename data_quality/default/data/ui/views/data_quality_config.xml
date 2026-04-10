@@ -1,4 +1,4 @@
-<dashboard version="1.1" theme="dark" script="data_quality_config.js">
+<dashboard version="1.1" theme="dark">
   <label>Configure Exclusions</label>
   <description>Manage sourcetypes excluded from Data Quality entropy monitoring. Excluded sourcetypes are ignored by all dashboards and scheduled alerts.</description>
 
@@ -11,8 +11,8 @@
     </input>
   </fieldset>
 
-  <!-- Add button -->
-  <row>
+  <!-- Add button — hidden while any action is in progress -->
+  <row rejects="$dq_do_add$,$dq_del_st$">
     <panel>
       <single>
         <search>
@@ -21,36 +21,58 @@
           <latest>now</latest>
         </search>
         <option name="field">label</option>
+        <option name="height">50</option>
         <option name="colorMode">block</option>
         <option name="useColors">1</option>
         <option name="rangeColors">["0x4A90D9","0x4A90D9"]</option>
         <option name="rangeValues">[1]</option>
         <option name="drilldown">all</option>
-        <option name="underLabel">Enter sourcetype above then click</option>
         <drilldown>
           <set token="dq_do_add">1</set>
         </drilldown>
       </single>
     </panel>
+  </row>
+
+  <!-- Add action: runs outputlookup, shows updated list -->
+  <row depends="$dq_do_add$">
+    <panel>
+      <title>Exclusion Added — updated list</title>
+      <table>
+        <search>
+          <query>| inputlookup data_quality_exclusions | append [| makeresults | eval sourcetype="$dq_add_st$", reason="$dq_add_reason$" | fields sourcetype reason] | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions | rename sourcetype as Sourcetype reason as Reason</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
     <panel>
       <single>
         <search>
-          <query>| makeresults | eval label=if("$dq_msg$"!="","$dq_msg$"," ")</query>
+          <query>| makeresults | eval label="✓ Done"</query>
           <earliest>-1m</earliest>
           <latest>now</latest>
         </search>
         <option name="field">label</option>
-        <option name="drilldown">none</option>
+        <option name="height">50</option>
+        <option name="drilldown">all</option>
+        <drilldown>
+          <unset token="dq_do_add"></unset>
+          <unset token="dq_add_st"></unset>
+          <unset token="dq_add_reason"></unset>
+        </drilldown>
       </single>
     </panel>
   </row>
 
-  <!-- Current exclusions — hidden during delete confirm -->
-  <row rejects="$dq_del_st$">
+  <!-- Current exclusions table — hidden while any action is in progress -->
+  <row rejects="$dq_do_add$,$dq_del_st$">
     <panel>
       <title>Current Exclusions — click a row to remove</title>
       <table>
-        <search id="excl_search">
+        <search>
           <query>| inputlookup data_quality_exclusions | sort sourcetype | rename sourcetype as Sourcetype reason as Reason</query>
           <earliest>-1m</earliest>
           <latest>now</latest>
@@ -65,8 +87,8 @@
     </panel>
   </row>
 
-  <!-- Delete confirmation — shown when a row is selected -->
-  <row depends="$dq_del_st$">
+  <!-- Delete confirmation — shown after row click, hidden once confirmed -->
+  <row depends="$dq_del_st$" rejects="$dq_do_del$">
     <panel>
       <title>Remove "$dq_del_st$" from the exclusion list?</title>
       <single>
@@ -76,6 +98,7 @@
           <latest>now</latest>
         </search>
         <option name="field">label</option>
+        <option name="height">50</option>
         <option name="colorMode">block</option>
         <option name="useColors">1</option>
         <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
@@ -94,8 +117,41 @@
           <latest>now</latest>
         </search>
         <option name="field">label</option>
+        <option name="height">50</option>
         <option name="drilldown">all</option>
         <drilldown>
+          <unset token="dq_del_st"></unset>
+        </drilldown>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Delete action: runs outputlookup, shows updated list -->
+  <row depends="$dq_do_del$">
+    <panel>
+      <title>Exclusion Removed — updated list</title>
+      <table>
+        <search>
+          <query>| inputlookup data_quality_exclusions | where sourcetype!="$dq_del_st$" | outputlookup data_quality_exclusions | rename sourcetype as Sourcetype reason as Reason</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| makeresults | eval label="✓ Done"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="height">50</option>
+        <option name="drilldown">all</option>
+        <drilldown>
+          <unset token="dq_do_del"></unset>
           <unset token="dq_del_st"></unset>
         </drilldown>
       </single>

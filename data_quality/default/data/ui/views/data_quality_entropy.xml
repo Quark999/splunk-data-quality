@@ -96,6 +96,7 @@
           <latest>now</latest>
         </search>
         <option name="field">label</option>
+        <option name="height">50</option>
         <option name="drilldown">all</option>
         <option name="underLabel">Click to close inspect panels</option>
         <drilldown>
@@ -123,9 +124,9 @@
       <title>Sample Events — $selected_sourcetype$</title>
       <table>
         <search>
-          <query>sourcetype="$selected_sourcetype$" | table _time host source _raw | sort - _time | head 50</query>
-          <earliest>$time_range.earliest$</earliest>
-          <latest>$time_range.latest$</latest>
+          <query>index=* sourcetype="$selected_sourcetype$" | table _time host source _raw | sort - _time | head 50</query>
+          <earliest>-7d</earliest>
+          <latest>now</latest>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">true</option>
