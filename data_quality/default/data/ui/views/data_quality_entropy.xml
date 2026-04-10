@@ -88,18 +88,20 @@
   <!-- Drilldown: shown when a row is selected in the detail table -->
   <row depends="$selected_sourcetype$">
     <panel>
-      <html>
-        <![CDATA[
-        <div style="padding:6px 0; font-size:13px">
-          Inspecting: <strong style="color:#a9c9eb">$selected_sourcetype$</strong>
-          &nbsp;&nbsp;
-          <a class="btn btn-default btn-small" href="javascript:void(0)"
-             onclick="require(['splunkjs/mvc'],function(mvc){mvc.Components.getInstance('default').unset('selected_sourcetype');})">
-            ✕ Clear
-          </a>
-        </div>
-        ]]>
-      </html>
+      <title>Inspecting: $selected_sourcetype$</title>
+      <single>
+        <search>
+          <query>| makeresults | eval label="✕ Clear"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="field">label</option>
+        <option name="drilldown">all</option>
+        <option name="underLabel">Click to close inspect panels</option>
+        <drilldown>
+          <unset token="selected_sourcetype"></unset>
+        </drilldown>
+      </single>
     </panel>
   </row>
 

@@ -1,102 +1,88 @@
 // data_quality_config.js
 // Loaded via <dashboard script="data_quality_config.js">.
-// Handles all add/remove logic for the exclusion manager using
-// splunkjs SDK oneshotSearch — no dashboard search, no safe_mode prompt.
+// Listens for token changes set by single-value panel drilldowns,
+// then runs outputlookup via the SDK REST API — no dashboard search,
+// no safe_mode prompt.
 
-require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
-    var svc = mvc.createService();
-    var pendingDelete = null;
+require(['splunkjs/mvc', 'splunkjs/ready!'], function (mvc) {
+    var svc    = mvc.createService();
+    var tokens = mvc.Components.getInstance('default');
+    var submitted = mvc.Components.getInstance('submitted');
+
+    function getToken(name) {
+        var v = tokens.get(name);
+        if (v !== undefined && v !== null) return String(v);
+        if (submitted) { v = submitted.get(name); }
+        return (v !== undefined && v !== null) ? String(v) : '';
+    }
+
+    function clearToken(name) {
+        tokens.unset(name);
+        if (submitted) submitted.unset(name);
+    }
+
+    function setToken(name, val) {
+        tokens.set(name, val);
+        if (submitted) submitted.set(name, val);
+    }
 
     function runSpl(spl, done) {
         svc.oneshotSearch(
             spl,
-            { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 1000 },
-            function (err, data) { done(err, (data && data.results) ? data.results : []); }
+            { earliest_time: '-1m', latest_time: 'now', output_mode: 'json', count: 0 },
+            function (err) { done(err); }
         );
     }
 
-    function esc(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function refreshTable() {
+        var sm = mvc.Components.getInstance('excl-search');
+        if (sm && sm.startSearch) sm.startSearch();
     }
-    function escJs(s)  { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-    function escSpl(s) { return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 
-    window.dqLoad = function () {
-        $('#dq-loading').show();
-        $('#dq-tbl, #dq-empty, #dq-err').hide();
+    function escSpl(s) {
+        return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
 
-        runSpl('| inputlookup data_quality_exclusions | sort sourcetype', function (err, rows) {
-            $('#dq-loading').hide();
-            if (err) { $('#dq-err').text('Error loading exclusions: ' + err).show(); return; }
+    // ── Add ──────────────────────────────────────────────────────────────────
+    tokens.on('change:dq_do_add', function () {
+        if (!tokens.get('dq_do_add')) return;
+        clearToken('dq_do_add');
 
-            var tbody = $('#dq-tbody').empty();
-            if (!rows.length) { $('#dq-empty').show(); return; }
+        var st     = getToken('dq_add_st').trim();
+        var reason = getToken('dq_add_reason').trim();
+        if (!st) return;
 
-            rows.forEach(function (r, i) {
-                var st = r.sourcetype || '', reason = r.reason || '';
-                tbody.append(
-                    '<tr style="border-bottom:1px solid #1e1e1e">' +
-                    '<td style="padding:8px 12px;color:#555;font-size:12px">' + (i + 1) + '</td>' +
-                    '<td style="padding:8px 12px;color:#ddd;font-family:monospace">' + esc(st) + '</td>' +
-                    '<td style="padding:8px 12px;color:#888">' + esc(reason) + '</td>' +
-                    '<td style="padding:8px 12px;text-align:right">' +
-                      '<button onclick="dqStartDel(\'' + escJs(st) + '\')" ' +
-                        'style="padding:4px 10px;background:transparent;border:1px solid #6b2020;border-radius:3px;color:#dc4e41;font-size:12px;cursor:pointer">' +
-                        'Remove</button>' +
-                    '</td></tr>'
-                );
-            });
-            $('#dq-tbl').show();
-        });
-    };
-
-    window.dqAdd = function () {
-        var st     = $('#dq-st').val().trim();
-        var reason = $('#dq-reason').val().trim();
-        if (!st) { $('#dq-st').css('border-color', '#dc4e41').focus(); return; }
-        $('#dq-st').css('border-color', '#333');
-        $('#dq-add-btn').prop('disabled', true).text('Saving\u2026');
-        $('#dq-ok, #dq-add-err').hide();
+        setToken('dq_msg', 'Saving\u2026');
 
         var spl = '| inputlookup data_quality_exclusions' +
             ' | append [| makeresults | eval sourcetype="' + escSpl(st) + '", reason="' + escSpl(reason) + '" | fields sourcetype reason]' +
             ' | dedup sourcetype | sort sourcetype | outputlookup data_quality_exclusions';
 
         runSpl(spl, function (err) {
-            $('#dq-add-btn').prop('disabled', false).text('+ Add');
-            if (err) { $('#dq-add-err').text('Error: ' + err).show(); return; }
-            $('#dq-st').val(''); $('#dq-reason').val('');
-            $('#dq-ok').show();
-            setTimeout(function () { $('#dq-ok').fadeOut(); }, 3000);
-            dqLoad();
+            if (err) { setToken('dq_msg', 'Error saving'); return; }
+            setToken('dq_msg', 'Saved \u2713');
+            clearToken('dq_add_st');
+            clearToken('dq_add_reason');
+            setTimeout(function () { clearToken('dq_msg'); }, 3000);
+            refreshTable();
         });
-    };
+    });
 
-    window.dqStartDel = function (st) {
-        pendingDelete = st;
-        document.getElementById('dq-del-label').textContent = st;
-        document.getElementById('dq-confirm').style.display = 'block';
-    };
+    // ── Delete ───────────────────────────────────────────────────────────────
+    tokens.on('change:dq_do_del', function () {
+        if (!tokens.get('dq_do_del')) return;
+        clearToken('dq_do_del');
 
-    window.dqCancelDel = function () {
-        pendingDelete = null;
-        document.getElementById('dq-confirm').style.display = 'none';
-    };
+        var st = getToken('dq_del_st').trim();
+        if (!st) return;
 
-    window.dqConfirmDel = function () {
-        if (!pendingDelete) return;
-        var st = pendingDelete;
-        dqCancelDel();
         runSpl(
             '| inputlookup data_quality_exclusions | where sourcetype!="' + escSpl(st) + '" | outputlookup data_quality_exclusions',
             function (err) {
                 if (err) { alert('Error removing exclusion: ' + err); return; }
-                dqLoad();
+                clearToken('dq_del_st');
+                refreshTable();
             }
         );
-    };
-
-    // Initial load
-    dqLoad();
+    });
 });
