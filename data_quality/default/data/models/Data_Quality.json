@@ -1,7 +1,7 @@
 {
   "modelName": "Data_Quality",
   "displayName": "Data Quality",
-  "description": "Lightweight data model for log source entropy monitoring. Tracks punct pattern diversity per sourcetype — no TA dependency, works universally.",
+  "description": "Lightweight data model for log source entropy monitoring. Tracks punct pattern diversity per sourcetype — no TA dependency, works universally. Excludes internal Splunk indexes (index=_*) by constraint.",
   "objects": [
     {
       "objectName": "Events",
@@ -20,7 +20,11 @@
           "comment": "Splunk auto-generated punctuation pattern — collapses to dc=1 when a source repeats the same message. Universal, no TA required."
         }
       ],
-      "constraints": [],
+      "constraints": [
+        {
+          "search": "NOT index=_*"
+        }
+      ],
       "calculations": []
     }
   ]

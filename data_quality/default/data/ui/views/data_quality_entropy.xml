@@ -1,6 +1,6 @@
 <dashboard version="1.1" theme="dark">
   <label>Data Quality — Log Source Entropy</label>
-  <description>Monitor log source health by tracking punct pattern diversity. Low variety = potential stuck or degraded source. No TA dependency — works universally.</description>
+  <description>Monitor log source health by tracking punct pattern diversity. Low variety = potential stuck or degraded source. No TA dependency — works universally. Excludes sourcetypes in the data_quality_exclusions lookup.</description>
 
   <fieldset submitButton="false" autoRun="true">
     <input type="time" token="time_range" searchWhenChanged="true">
@@ -21,7 +21,7 @@
       <title>Sources Below Entropy Threshold</title>
       <single>
         <search>
-          <query>| tstats dc(Data_Quality.punct) as entropy_proxy FROM datamodel=Data_Quality.Events BY sourcetype | where entropy_proxy &lt; $entropy_threshold$ | stats count as affected_sources</query>
+          <query>| datamodel Data_Quality Events search | stats dc(Events.punct) as entropy_proxy by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where entropy_proxy &lt; $entropy_threshold$ | stats count as affected_sources</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -37,7 +37,7 @@
       <title>Total Events from Low-Entropy Sources</title>
       <single>
         <search>
-          <query>| tstats dc(Data_Quality.punct) as entropy_proxy count as event_count FROM datamodel=Data_Quality.Events BY sourcetype | where entropy_proxy &lt; $entropy_threshold$ | stats sum(event_count) as total_events</query>
+          <query>| datamodel Data_Quality Events search | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where entropy_proxy &lt; $entropy_threshold$ | stats sum(event_count) as total_events</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -49,7 +49,7 @@
       <title>Top Offender</title>
       <single>
         <search>
-          <query>| tstats dc(Data_Quality.punct) as entropy_proxy count as event_count FROM datamodel=Data_Quality.Events BY sourcetype | where entropy_proxy &lt; $entropy_threshold$ | sort - event_count | head 1 | fields sourcetype</query>
+          <query>| datamodel Data_Quality Events search | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where entropy_proxy &lt; $entropy_threshold$ | sort - event_count | head 1 | fields sourcetype</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -60,10 +60,10 @@
 
   <row>
     <panel>
-      <title>Low-Entropy Sources — Detail</title>
+      <title>Low-Entropy Sources — Detail (click a row to inspect)</title>
       <table>
         <search>
-          <query>| tstats dc(Data_Quality.punct) as entropy_proxy count as event_count FROM datamodel=Data_Quality.Events BY index, sourcetype, _time span=1h | where entropy_proxy &lt; $entropy_threshold$ | stats avg(entropy_proxy) as avg_entropy latest(entropy_proxy) as latest_entropy sum(event_count) as total_events BY index, sourcetype | eval avg_entropy=round(avg_entropy,1) | sort - total_events | rename index as Index sourcetype as Sourcetype avg_entropy as "Avg Distinct punct/hr" latest_entropy as "Latest Distinct punct" total_events as "Total Events"</query>
+          <query>| datamodel Data_Quality Events search | bin _time span=1h | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype, _time | stats avg(entropy_proxy) as avg_entropy latest(entropy_proxy) as latest_entropy sum(event_count) as total_events by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where avg_entropy &lt; $entropy_threshold$ | eval avg_entropy=round(avg_entropy,1) | sort - total_events | rename sourcetype as Sourcetype avg_entropy as "Avg Distinct punct/hr" latest_entropy as "Latest Distinct punct" total_events as "Total Events"</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -75,8 +75,58 @@
           <colorPalette type="minMidMax" minColor="#DC4E41" midColor="#F8BE34" maxColor="#53A051"/>
           <scale type="minMidMax" minValue="0" midValue="2" maxValue="5"/>
         </format>
-        <option name="drilldown">none</option>
+        <option name="drilldown">row</option>
         <option name="rowNumbers">false</option>
+        <option name="wrap">true</option>
+        <drilldown>
+          <set token="selected_sourcetype">$row.Sourcetype$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Drilldown: shown when a row is selected in the detail table -->
+  <row depends="$selected_sourcetype$">
+    <panel>
+      <html>
+        <![CDATA[
+        <div style="padding:6px 0; font-size:13px">
+          Inspecting: <strong style="color:#a9c9eb">$selected_sourcetype$</strong>
+          &nbsp;&nbsp;
+          <a class="btn btn-default btn-small" href="javascript:void(0)"
+             onclick="require(['splunkjs/mvc'],function(mvc){mvc.Components.getInstance('default').unset('selected_sourcetype');})">
+            ✕ Clear
+          </a>
+        </div>
+        ]]>
+      </html>
+    </panel>
+  </row>
+
+  <row depends="$selected_sourcetype$">
+    <panel>
+      <title>Punct Pattern Distribution — $selected_sourcetype$</title>
+      <table>
+        <search>
+          <query>sourcetype="$selected_sourcetype$" | stats count by punct | eventstats sum(count) as total | eval pct=round(count/total*100,1) | sort - count | head 15 | fields - total | rename punct as "Punct Pattern" count as Events pct as "% of Total"</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Sample Events — $selected_sourcetype$</title>
+      <table>
+        <search>
+          <query>sourcetype="$selected_sourcetype$" | table _time host source _raw | sort - _time | head 50</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
         <option name="wrap">true</option>
       </table>
     </panel>
@@ -87,7 +137,7 @@
       <title>Entropy Over Time — All Sources</title>
       <chart>
         <search>
-          <query>| tstats dc(Data_Quality.punct) as entropy FROM datamodel=Data_Quality.Events BY sourcetype, _time span=1h | timechart span=1h avg(entropy) BY sourcetype limit=20 useother=false</query>
+          <query>| datamodel Data_Quality Events search | bin _time span=1h | stats dc(Events.punct) as entropy by sourcetype, _time | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | timechart span=1h avg(entropy) by sourcetype limit=20 useother=false</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -107,7 +157,7 @@
       <title>Entropy Heatmap — Sourcetype by Hour of Day</title>
       <chart>
         <search>
-          <query>| tstats dc(Data_Quality.punct) as entropy FROM datamodel=Data_Quality.Events BY sourcetype, _time span=1h | eval hour=strftime(_time,"%H:00") | chart avg(entropy) BY sourcetype, hour</query>
+          <query>| datamodel Data_Quality Events search | bin _time span=1h | stats dc(Events.punct) as entropy by sourcetype, _time | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | eval hour=strftime(_time,"%H:00") | chart avg(entropy) by sourcetype, hour</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>

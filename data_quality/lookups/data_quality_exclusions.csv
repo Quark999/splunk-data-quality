@@ -1,0 +1,48 @@
+sourcetype,reason
+administrative_reload-2,Splunk internal modular input
+ai_event_log,Splunk AI internal log
+app_imports_update,Splunk internal modular input
+audittrail,Splunk internal audit trail
+automation_rules_rest_handler,ES REST handler
+ba_enablement,ES behavioral analytics internal
+behavioral_analytics_rest_handler,ES REST handler
+contentinfo_rest_handler,ES REST handler
+customsearchbuilder:rest_handler,Splunk REST handler
+dm_accel_settings,Splunk data model acceleration internal
+dsappevent,Splunk deployment server internal
+dsclient,Splunk deployment server internal
+dsphonehome,Splunk deployment server internal
+es_asset_exporter,ES asset management internal
+es_identity_exporter,ES identity management internal
+es_ingestion_volume_manager,ES ingestion internal
+federated_analytics_rest_handler,ES REST handler
+finding_group_reopen-2,ES Mission Control internal
+finding_group_reopen-too_small,ES Mission Control internal
+governance:rest_handler,ES REST handler
+identity_correlation:rest_handler,ES REST handler
+investigation_rest_handler,ES REST handler
+log_review_rest_handler,ES REST handler
+lookup_table_custom_rest_handler,Splunk REST handler
+managed_nav_rest_handler,ES REST handler
+mc_ers_lookup_cache-too_small,ES Mission Control internal
+mc_generic_kv_update,ES Mission Control internal
+mc_incident_update,ES Mission Control internal
+mc_soar_dispatch_mod_input.log,ES SOAR internal
+node:sidecar:edge_processor_config:stdout,ES node sidecar internal
+node:sidecar:identity:stdout,ES node sidecar internal
+node:sidecar:opamp_svc:stdout,ES node sidecar internal
+node:sidecar:postgres:stderr,ES node sidecar internal
+notable_update_rest_handler,ES REST handler
+python_modular_input,Splunk internal modular input
+splunk_ai_assistant_chat_log,Splunk AI internal
+splunk_configuration_change,Splunk internal configuration change log
+splunk_o11y_app,Splunk Observability internal
+splunk_resource_usage,Splunk internal resource metrics
+splunk_shc_upgrade_completion_script,Splunk SHC internal
+splunk_telemetry_log,Splunk telemetry internal
+splunkd_conf,Splunk internal configuration log
+threatintel:threatmatch,ES threat intelligence internal
+tim_cmp_key_rotation,ES threat intelligence internal
+tim_rest_handler,ES threat intelligence REST handler
+transitioners_rest_handler,ES REST handler
+whois_manager,ES WHOIS lookup internal
