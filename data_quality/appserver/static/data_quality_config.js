@@ -17,9 +17,6 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
         return (v !== undefined && v !== null) ? String(v) : '';
     }
     function clearToken(name) { tokens.unset(name); if (submitted) submitted.unset(name); }
-    // Use for fieldset text inputs — set to '' rather than unset so Splunk's
-    // input component keeps its token binding and fires updates on next keypress.
-    function clearInputToken(name) { tokens.set(name, ''); if (submitted) submitted.set(name, ''); }
     function setToken(name, val) { tokens.set(name, val); if (submitted) submitted.set(name, val); }
 
     // ── SPL helpers ───────────────────────────────────────────────────────────
@@ -126,8 +123,6 @@ require(['splunkjs/mvc', 'jquery', 'splunkjs/ready!'], function (mvc, $) {
         runSpl(spl, function (err) {
             $('#dq-add-btn').prop('disabled', false).text('+ Add to Exclusion List');
             if (err) { showToast('Error saving: ' + err, true); return; }
-            clearInputToken('dq_add_st');
-            clearInputToken('dq_add_reason');
             showToast('Saved \u2713');
             refreshTable();
         });
