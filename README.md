@@ -51,7 +51,7 @@ The threshold is configurable from the dashboard (default: 5 distinct punct patt
 
 1. Download `splunk-data-quality-<version>.tar.gz` from [Releases](../../releases)
 2. In Splunk Web: **Apps → Manage Apps → Install app from file**
-3. Upload the tarball — no restart required
+3. Upload the tarball. Splunk may prompt for a restart or app reload depending on your deployment.
 
 ### Option B — Clone and install manually
 
@@ -59,8 +59,10 @@ The threshold is configurable from the dashboard (default: 5 distinct punct patt
 git clone https://github.com/Quark999/splunk-data-quality.git
 cp -r splunk-data-quality/data_quality $SPLUNK_HOME/etc/apps/
 chown -R splunk:splunk $SPLUNK_HOME/etc/apps/data_quality
-$SPLUNK_HOME/bin/splunk reload deploy-server
+$SPLUNK_HOME/bin/splunk restart
 ```
+
+For search head clusters or managed deployments, install through the appropriate deployer or deployment server workflow instead of copying directly to a live search head.
 
 ---
 
