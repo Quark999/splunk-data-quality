@@ -12,8 +12,13 @@
         <latest>now</latest>
       </default>
     </input>
-    <input type="text" token="entropy_threshold" searchWhenChanged="true">
+    <input type="dropdown" token="entropy_threshold" searchWhenChanged="true">
       <label>Alert Threshold (flag below)</label>
+      <choice value="2">2 distinct punct patterns/hr</choice>
+      <choice value="3">3 distinct punct patterns/hr</choice>
+      <choice value="5">5 distinct punct patterns/hr</choice>
+      <choice value="10">10 distinct punct patterns/hr</choice>
+      <choice value="20">20 distinct punct patterns/hr</choice>
       <default>5</default>
     </input>
   </fieldset>
@@ -23,7 +28,7 @@
       <title>Sources Below Entropy Threshold</title>
       <single>
         <search>
-          <query>| datamodel Data_Quality Events search | stats dc(Events.punct) as entropy_proxy by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where entropy_proxy &lt; $entropy_threshold$ | stats count as affected_sources</query>
+          <query>| datamodel Data_Quality Events search | bin _time span=1h | stats dc(Events.punct) as entropy_proxy by sourcetype, _time | stats avg(entropy_proxy) as avg_entropy by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where avg_entropy &lt; $entropy_threshold$ | stats count as affected_sources</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -39,7 +44,7 @@
       <title>Total Events from Low-Entropy Sources</title>
       <single>
         <search>
-          <query>| datamodel Data_Quality Events search | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where entropy_proxy &lt; $entropy_threshold$ | stats sum(event_count) as total_events</query>
+          <query>| datamodel Data_Quality Events search | bin _time span=1h | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype, _time | stats avg(entropy_proxy) as avg_entropy sum(event_count) as total_events by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where avg_entropy &lt; $entropy_threshold$ | stats sum(total_events) as total_events</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -51,7 +56,7 @@
       <title>Top Offender</title>
       <single>
         <search>
-          <query>| datamodel Data_Quality Events search | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where entropy_proxy &lt; $entropy_threshold$ | sort - event_count | head 1 | fields sourcetype</query>
+          <query>| datamodel Data_Quality Events search | bin _time span=1h | stats dc(Events.punct) as entropy_proxy count as event_count by sourcetype, _time | stats avg(entropy_proxy) as avg_entropy sum(event_count) as total_events by sourcetype | lookup data_quality_exclusions sourcetype OUTPUT reason as excluded | where isnull(excluded) | where avg_entropy &lt; $entropy_threshold$ | sort - total_events | head 1 | fields sourcetype</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -93,7 +98,7 @@
       <title>Punct Pattern Distribution — $selected_sourcetype$</title>
       <table>
         <search>
-          <query>index=* sourcetype="$selected_sourcetype$" | fillnull value="(none)" punct | stats count by punct | eventstats sum(count) as total | eval pct=round(count/total*100,1) | sort - count | head 20 | fields - total | rename punct as "Punct Pattern" count as Events pct as "% of Total"</query>
+          <query>index=* sourcetype=$selected_sourcetype|s$ | fillnull value="(none)" punct | stats count by punct | eventstats sum(count) as total | eval pct=round(count/total*100,1) | sort - count | head 20 | fields - total | rename punct as "Punct Pattern" count as Events pct as "% of Total"</query>
           <earliest>$time_range.earliest$</earliest>
           <latest>$time_range.latest$</latest>
         </search>
@@ -106,7 +111,7 @@
       <title>Sample Events — $selected_sourcetype$</title>
       <table>
         <search>
-          <query>index=* sourcetype="$selected_sourcetype$" | table _time host source _raw | sort - _time | head 50</query>
+          <query>index=* sourcetype=$selected_sourcetype|s$ | table _time host source _raw | sort - _time | head 50</query>
           <earliest>-7d</earliest>
           <latest>now</latest>
         </search>
